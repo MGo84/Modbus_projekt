@@ -1,55 +1,69 @@
+#include <Adafruit_BME280.h>
+
+
 #include <modbus.h>
 #include <modbusDevice.h>
 #include <modbusRegBank.h>
 #include <modbusSlave.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
-#include <Wire.h>
-#include <SPI.h>
+
 
 Adafruit_BME280 bmp; // I2C
 
 modbusDevice regBank;
 modbusSlave slave;
-
+int foto ;
+int humidity ;
+int temperature ;
+int pressure;
 int zmienna;
 int fotoPin = 0;
-
-void setup(void)
+boolean status_bmp;
+void setup()
 {
 
   regBank.setId(2);
   slave.setBaud(19200);
   slave._device = &regBank;
+  delay(500);
 
   regBank.add(30001);  //LIGHT
   regBank.add(30002);  //TEMP
   regBank.add(30003);  //HUMIDITY
   regBank.add(30004);  //PRESSURE
-  regBank.add(30005);  //ROLLING COUNTER
+  regBank.add(30005);  //ROLLING COUNTER out
 
-  Serial.begin(9600);
-  Serial.println(F("BMP280 test"));
+  pinMode(fotoPin, INPUT);
+  
+  if (!bmp.begin())
+    status_bmp = false;
+  else
+    status_bmp = true;
+}
 
-  if (!bmp.begin()) {
-    Serial.println(F("Could not find a valid BMP280 sensor, check wiring!"));
-    while (1);
-
+void loop()
+{
+  zmienna++;
+  if (zmienna == 500)
     zmienna = 0;
+  foto = analogRead(fotoPin);
 
+
+  regBank.set(30001, foto);
+  
+  if (status_bmp)
+  { 
+  humidity =  bmp.readHumidity();
+    temperature = bmp.readTemperature();
+   pressure = bmp.readPressure();
+
+    regBank.set(30002, temperature);
+    regBank.set(30003, humidity);
+    regBank.set(30004, pressure);
   }
+  
+  regBank.set(30005, zmienna);
 
-  void loop(void) {
-
-    zmienna++;
-    if (zmienna == 500)
-      zmienna = 0;
-
-    regBank.set(30001, analogRead(fotoPin));
-    regBank.set(30002, bmp.readTemperature());
-    regBank.set(30003, bmp.readHumidity());
-    regBank.set(30004, bmp.readPressure());
-    regBank.set(30005, zmienna);
-
-    slave.run();
-  }
+  slave.run();
+  // delay(100);
+}
